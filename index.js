@@ -50,14 +50,36 @@ function mapRange(value, inMin, inMax, outMin, outMax) {
     return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
 }
 
+// Function to toggle overlay visibility
+function toggleOverlay(id) {
+    const overlay = document.getElementById(id);
+    if (!overlay) return;
+
+    const toggleBtn = overlay.querySelector('.toggle-btn');
+    if (!toggleBtn) return;
+
+    if (overlay.classList.contains('collapsed')) {
+        // Expand
+        overlay.classList.remove('collapsed');
+        toggleBtn.textContent = '[-]';
+    } else {
+        // Collapse
+        overlay.classList.add('collapsed');
+        toggleBtn.textContent = '[+]';
+    }
+}
+
 // Function to display performance metrics
 function displayMetrics() {
     const metrics = document.getElementById('metrics');
     if (!metrics) return;
 
+    const metricsContent = metrics.querySelector('.overlay-content');
+    if (!metricsContent) return;
+
     const detailLevel = calculateDetailLevel();
 
-    metrics.innerHTML = `
+    metricsContent.innerHTML = `
         <div>Zoom: ${zoomLevel.toFixed(2)}</div>
         <div>Quality: ${renderQuality.toFixed(2)}</div>
         <div>Render time: ${lastRenderTime.toFixed(1)}ms</div>
@@ -198,8 +220,6 @@ let time = 0;
 const baseZoomSpeed = 0.03; // Increased from 0.01 for faster auto zoom
 let zoomSpeed = baseZoomSpeed;
 const colorSpeed = 1;
-const orbitSpeed = 0.001;
-const orbitRadius = 0.1;
 const maxZoomLevel = 40; // Maximum zoom level before resetting
 
 // Touch control variables
@@ -246,7 +266,7 @@ function animate() {
             zoomingToTarget = false;
         }
     }
-    // When automatic zooming is disabled, camera position is controlled by dragging
+    // Camera position controlled by dragging when automatic zooming is disabled
 
     // Shift colors over time
     colorShift = (colorShift + colorSpeed) % 360;
@@ -410,7 +430,7 @@ if (isMobile) {
         longPressTimer = setTimeout(() => {
             resetView();
             longPressTimer = null;
-        }, 800); // 800ms for long press
+        }, 800); // 800 ms for long press
 
         // Handle multi-touch (pinch)
         if (event.touches.length === 2) {
@@ -545,17 +565,19 @@ if (isMobile) {
     // Update instructions for mobile
     const instructionsDiv = document.getElementById('instructions');
     if (instructionsDiv) {
-        instructionsDiv.innerHTML = `
-            <h3 style="margin-top: 0;">Fractal Explorer</h3>
-            <p>Explore the endless nature of the Mandelbrot set:</p>
-            <ul>
-                <li><strong>Tap and swipe</strong> to move the camera around</li>
-                <li><strong>Pinch</strong> to zoom in/out</li>
-                <li><strong>Double tap</strong> to start/stop automatic zooming</li>
-                <li><strong>Long press</strong> to reset the view</li>
-            </ul>
-            <p><small>Rendering balances detail and performance for a smooth exploration experience.</small></p>
-        `;
+        const instructionsContent = instructionsDiv.querySelector('.overlay-content');
+        if (instructionsContent) {
+            instructionsContent.innerHTML = `
+                <p>Explore the endless nature of the Mandelbrot set:</p>
+                <ul>
+                    <li><strong>Tap and swipe</strong> to move the camera around</li>
+                    <li><strong>Pinch</strong> to zoom in/out</li>
+                    <li><strong>Double tap</strong> to start/stop automatic zooming</li>
+                    <li><strong>Long press</strong> to reset the view</li>
+                </ul>
+                <p><small>Rendering balances detail and performance for a smooth exploration experience.</small></p>
+            `;
+        }
     }
 }
 

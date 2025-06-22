@@ -19,22 +19,109 @@
             width: 100%;
             height: 100%;
         }
+        .overlay {
+            position: absolute;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out;
+            overflow: hidden;
+        }
+        .overlay-content {
+            transition: opacity 0.3s ease-out;
+        }
+        .toggle-btn {
+            cursor: pointer;
+            float: right;
+            font-size: 16px;
+            margin-left: 10px;
+            user-select: none;
+        }
+        .collapsed .overlay-content {
+            opacity: 0;
+            display: none;
+        }
+        .collapsed {
+            max-height: 36px; /* Reduced height for collapsed state */
+            opacity: 0.7;
+            padding: 5px 10px; /* Less padding when collapsed */
+        }
+        .overlay-header {
+            position: relative;
+            z-index: 1;
+        }
+        .overlay-label {
+            display: none;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .collapsed .overlay-label {
+            display: inline-block;
+        }
+
+        /* Mobile-specific adjustments */
+        @media (max-width: 768px) {
+            .overlay {
+                max-width: 80%;
+            }
+            .collapsed {
+                max-height: 32px; /* Even smaller on mobile */
+                padding: 3px 8px; /* Less padding on mobile */
+                opacity: 0.6; /* More transparent on mobile */
+            }
+            .overlay-label {
+                font-size: 14px; /* Smaller font on mobile */
+            }
+            #instructions {
+                bottom: 10px;
+                left: 10px;
+            }
+            #metrics {
+                top: 10px;
+                right: 10px;
+            }
+        }
+        #instructions {
+            bottom: 20px;
+            left: 20px;
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+        }
+        #metrics {
+            top: 20px;
+            right: 20px;
+            font-family: monospace;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
     <canvas id="fractalCanvas"></canvas>
-    <div id="instructions" style="position: absolute; bottom: 20px; left: 20px; color: white; background-color: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; font-family: Arial, sans-serif; max-width: 400px;">
-        <h3 style="margin-top: 0;">Fractal Explorer</h3>
-        <p>Explore the endless nature of the Mandelbrot set:</p>
-        <ul>
-            <li><strong>Click and drag</strong> to move the camera around</li>
-            <li><strong>Mouse wheel</strong> to zoom in/out at the cursor position</li>
-            <li><strong>Spacebar</strong> to start/stop automatic zooming</li>
-            <li><strong>R</strong> to reset the view</li>
-        </ul>
-        <p><small>Rendering balances detail and performance for a smooth exploration experience.</small></p>
+    <div id="instructions" class="overlay">
+        <div class="overlay-header">
+            <span class="toggle-btn" onclick="toggleOverlay('instructions')">[-]</span>
+            <h3 style="margin-top: 0; display: inline-block;">Fractal Explorer</h3>
+            <span class="overlay-label">Instructions</span>
+        </div>
+        <div class="overlay-content">
+            <p>Explore the endless nature of the Mandelbrot set:</p>
+            <ul>
+                <li><strong>Click and drag</strong> to move the camera around</li>
+                <li><strong>Mouse wheel</strong> to zoom in/out at the cursor position</li>
+                <li><strong>Spacebar</strong> to start/stop automatic zooming</li>
+                <li><strong>R</strong> to reset the view</li>
+            </ul>
+            <p><small>Rendering balances detail and performance for a smooth exploration experience.</small></p>
+        </div>
     </div>
-    <div id="metrics" style="position: absolute; top: 20px; right: 20px; color: white; background-color: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; font-family: monospace; text-align: right;"></div>
+    <div id="metrics" class="overlay">
+        <div class="overlay-header">
+            <span class="toggle-btn" onclick="toggleOverlay('metrics')">[-]</span>
+            <span class="overlay-label">Details</span>
+        </div>
+        <div class="overlay-content"></div>
+    </div>
     <script src="index.js"></script>
 </body>
 </html>
