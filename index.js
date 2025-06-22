@@ -10,6 +10,9 @@ let offsetY = 0;
 let colorShift = 0;
 let maxIterations = 200; // Balanced for performance and precision
 
+// Device detection
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
 // Balanced rendering variables
 let renderQuality = 1; // Start with high quality, but allow dynamic adjustment
 let isRendering = false;
@@ -72,6 +75,11 @@ function generateMandelbrot() {
         return;
     }
     isRendering = true;
+
+    // Force render quality to a lower value when dragging for better performance
+    if (isDragging) {
+        renderQuality = 4; // Higher value = lower quality = faster rendering during drag
+    }
 
     const startTime = performance.now();
 
@@ -171,12 +179,15 @@ function generateMandelbrot() {
     lastRenderTime = renderTime;
 
     // Dynamically adjust quality based on performance, but favor higher quality
-    if (renderTime > targetFrameTime * 1.5) {
-        // Too slow, decrease quality but more conservatively
-        renderQuality = Math.min(4, renderQuality + 0.5); // Cap at 4x (not 8x) for better quality
-    } else if (renderTime < targetFrameTime * 0.7 && renderQuality > 1) {
-        // Fast enough, increase quality more aggressively
-        renderQuality = Math.max(1, renderQuality - 0.3);
+    // Only auto-adjust quality when not dragging
+    if (!isDragging) {
+        if (renderTime > targetFrameTime * 1.5) {
+            // Too slow, decrease quality but more conservatively
+            renderQuality = Math.min(4, renderQuality + 0.5); // Cap at 4x for better quality
+        } else if (renderTime < targetFrameTime * 0.7 && renderQuality > 1) {
+            // Fast enough, increase quality more aggressively when screen is not moving
+            renderQuality = Math.max(0.5, renderQuality - 0.3); // More aggressive quality improvement
+        }
     }
 
     isRendering = false;
@@ -184,12 +195,20 @@ function generateMandelbrot() {
 
 // Animation parameters
 let time = 0;
-const baseZoomSpeed = 0.01;
+const baseZoomSpeed = 0.03; // Increased from 0.01 for faster auto zoom
 let zoomSpeed = baseZoomSpeed;
 const colorSpeed = 1;
 const orbitSpeed = 0.001;
 const orbitRadius = 0.1;
 const maxZoomLevel = 40; // Maximum zoom level before resetting
+
+// Touch control variables
+let touchStartX = 0;
+let touchStartY = 0;
+let lastTouchDistance = 0;
+let lastTapTime = 0;
+let longPressTimer = null;
+let isTouching = false;
 
 // Function to calculate the detail level based on zoom and iterations
 function calculateDetailLevel() {
@@ -347,6 +366,198 @@ document.addEventListener('keydown', (event) => {
             break;
     }
 });
+
+// Function to calculate distance between two touch points
+function getTouchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+// Function to reset view
+function resetView() {
+    zoomLevel = 1;
+    offsetX = 0;
+    offsetY = 0;
+    console.log('View reset');
+}
+
+// Function to toggle auto zoom
+function toggleAutoZoom() {
+    zoomingToTarget = !zoomingToTarget;
+    if (zoomingToTarget) {
+        zoomProgress = 0;
+        console.log('Starting automatic zoom');
+    } else {
+        console.log('Stopping automatic zoom');
+    }
+}
+
+// Add touch controls for mobile devices
+if (isMobile) {
+    // Touch start event
+    canvas.addEventListener('touchstart', (event) => {
+        event.preventDefault();
+
+        // Clear any existing long press timer
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+        }
+
+        isTouching = true;
+
+        // Set up long press detection
+        longPressTimer = setTimeout(() => {
+            resetView();
+            longPressTimer = null;
+        }, 800); // 800ms for long press
+
+        // Handle multi-touch (pinch)
+        if (event.touches.length === 2) {
+            lastTouchDistance = getTouchDistance(event.touches);
+        } 
+        // Handle single touch (tap/swipe)
+        else if (event.touches.length === 1) {
+            touchStartX = event.touches[0].clientX;
+            touchStartY = event.touches[0].clientY;
+
+            // Check for double tap
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTapTime;
+
+            if (tapLength < 300 && tapLength > 0) {
+                // Double tap detected
+                toggleAutoZoom();
+
+                // Convert touch position to complex plane coordinates for zoom target
+                const zoomFactor = Math.exp(zoomLevel);
+                const aspectRatio = width / height;
+
+                // Calculate the complex coordinates of the touch position
+                targetX = mapRange(touchStartX, 0, width, -2.5 / zoomFactor, 1 / zoomFactor) + offsetX;
+                targetY = mapRange(touchStartY, 0, height, -1 / zoomFactor, 1 / zoomFactor) / aspectRatio + offsetY;
+
+                // Prevent additional actions
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            }
+
+            lastTapTime = currentTime;
+        }
+    });
+
+    // Touch move event
+    canvas.addEventListener('touchmove', (event) => {
+        event.preventDefault();
+
+        // Clear long press timer on movement
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+
+        // Handle pinch-to-zoom (two fingers)
+        if (event.touches.length === 2) {
+            const currentDistance = getTouchDistance(event.touches);
+
+            // Calculate zoom based on pinch distance change
+            if (lastTouchDistance > 0) {
+                const distanceChange = currentDistance - lastTouchDistance;
+                const zoomAmount = distanceChange * 0.01;
+
+                // Apply zoom
+                zoomLevel = Math.max(0.1, zoomLevel + zoomAmount);
+
+                // Set target to center of the two touch points
+                const centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+                const centerY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+
+                // Convert center position to complex plane coordinates
+                const zoomFactor = Math.exp(zoomLevel);
+                const aspectRatio = width / height;
+
+                targetX = mapRange(centerX, 0, width, -2.5 / zoomFactor, 1 / zoomFactor) + offsetX;
+                targetY = mapRange(centerY, 0, height, -1 / zoomFactor, 1 / zoomFactor) / aspectRatio + offsetY;
+
+                // Move toward the target point
+                offsetX += (targetX - offsetX) * 0.1;
+                offsetY += (targetY - offsetY) * 0.1;
+            }
+
+            lastTouchDistance = currentDistance;
+        } 
+        // Handle swipe (one finger)
+        else if (event.touches.length === 1 && isTouching) {
+            const touchX = event.touches[0].clientX;
+            const touchY = event.touches[0].clientY;
+
+            const deltaX = touchX - touchStartX;
+            const deltaY = touchY - touchStartY;
+
+            // Convert screen coordinates to complex plane coordinates
+            const zoomFactor = Math.exp(zoomLevel);
+            const aspectRatio = width / height;
+
+            // Calculate the amount to move in the complex plane
+            const moveX = -deltaX * (3.5 / width) / zoomFactor;
+            const moveY = -deltaY * (2 / height) / zoomFactor / aspectRatio;
+
+            // Update the offset
+            offsetX += moveX;
+            offsetY += moveY;
+
+            // Update touch start position for next move
+            touchStartX = touchX;
+            touchStartY = touchY;
+        }
+    });
+
+    // Touch end event
+    canvas.addEventListener('touchend', (event) => {
+        event.preventDefault();
+
+        // Clear long press timer
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+
+        isTouching = false;
+        lastTouchDistance = 0;
+    });
+
+    // Touch cancel event
+    canvas.addEventListener('touchcancel', (event) => {
+        event.preventDefault();
+
+        // Clear long press timer
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+
+        isTouching = false;
+        lastTouchDistance = 0;
+    });
+
+    // Update instructions for mobile
+    const instructionsDiv = document.getElementById('instructions');
+    if (instructionsDiv) {
+        instructionsDiv.innerHTML = `
+            <h3 style="margin-top: 0;">Fractal Explorer</h3>
+            <p>Explore the endless nature of the Mandelbrot set:</p>
+            <ul>
+                <li><strong>Tap and swipe</strong> to move the camera around</li>
+                <li><strong>Pinch</strong> to zoom in/out</li>
+                <li><strong>Double tap</strong> to start/stop automatic zooming</li>
+                <li><strong>Long press</strong> to reset the view</li>
+            </ul>
+            <p><small>Rendering balances detail and performance for a smooth exploration experience.</small></p>
+        `;
+    }
+}
 
 // Start the animation
 animate();
